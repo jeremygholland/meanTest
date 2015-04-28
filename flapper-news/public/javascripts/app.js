@@ -1,53 +1,65 @@
 var app = angular.module('flapperNews', ['ui.router']);
 
 
-app.config(function($stateProvider, $urlRouterProvider){
-    $urlRouterProvider.otherwise('home');
+app.config([
+'$stateProvider',
+'$urlRouterProvider',
+function($stateProvider, $urlRouterProvider) {
+
 
     $stateProvider
-      .state('home',{
-        url: '/home',
-        templateUrl: '/home.html',
-        controller: 'MainCtrl'
-      })
+      .state('home', {
+        controller: 'MainCtrl',
+      url: '/home',
+      templateUrl: '/home.html',
+      resolve: {
+    postPromise: ['posts', function(posts){
+      return posts.getAll();
+        }]
+      }
+    })
       .state('posts', {
         url: '/posts/{id}',
         templateUrl: '/posts.html',
         controller: 'PostsCtrl'
-      });
-  });
+      })
+      $urlRouterProvider.otherwise('home');
+  }]);
 
-app.factory('posts', [function(){
+app.factory('posts', [ '$http', function($http){
   var o = {
-    posts: []
-  };
-  return o;
-}]);
+    posts: [],
+  }
+ o.getAll = function() {
+    return $http.get('/posts').success(function(data){
+      angular.copy(data, o.posts);
+    });
+  }
+
+  o.create = function(post) {
+  return $http.post('/posts', post).success(function(data){
+    o.posts.push(data);
+  });
+};
+      return o;
+
+  }]);
 
 app.controller('MainCtrl', [
   '$scope',
+  '$http',
   'posts',
-  function($scope, posts){
-    $scope.posts = posts.posts;
-
-    $scope.posts = [
-    {title: 'post 1', upvotes: 5},
-    {title: 'post 2', upvotes:2},
-    {title: 'post 3', upvotes: 15},
-    {title: 'post 4', upvotes: 9},
-    {title: 'post 5', upvotes: 4}
-    ];
+  function($scope, $http, posts){
+    $scope.posts = [];
+    console.log('yes this is loading');
+     $scope.posts = $scope.posts.concat(posts.posts);
+     console.log($scope.posts)
    $scope.addPost = function(){
     if(!$scope.title || $scope.title ===''){return;}
-      $scope.posts.push(
-      {
+
+    posts.create({
         title: $scope.title, 
         link: $scope.link,
-        upvotes: 0,
-        comments: [
-        {author: 'Joe', body: 'Cool post!', upvotes: 0},
-        {author: 'Bob', body: 'Great idea but everything is wrong!', upvotes: 0}
-        ]
       });
     $scope.title = '';
     $scope.link = '';
@@ -58,13 +70,15 @@ app.controller('MainCtrl', [
     post.upvotes += 1;
    };
 
+
   }]);
 
 
 app.controller('PostsCtrl', [
   '$scope',
+  '$http',
   '$stateParams',
   'posts',
-  function($scope, $stateParams, posts){
+  function($scope, $http, $stateParams, posts){
     $scope.post = posts.posts[$stateParams.id];
   }])
